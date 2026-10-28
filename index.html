@@ -43,6 +43,12 @@ main{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
 .conv input{flex:1;min-width:0;width:100%;border:0;background:transparent;color:var(--ink);font:700 22px var(--f);padding:8px 6px;outline:none}
 .fx{display:flex;flex-direction:column;gap:10px}
 .ent h3{margin:0 0 10px;font-size:16px;font-weight:700;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ordbtn{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);font:600 13px var(--f);border-radius:12px;min-height:50px;padding:0 12px;cursor:pointer}
+.ordbtn[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.mv{display:flex;gap:6px;flex:none}
+.mv button{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:700 18px var(--f);cursor:pointer}
+.mv button:disabled{opacity:.3}
+.ent.ordering h3{align-items:center;margin:0}
 .ent h3 small{font-size:11.5px;color:var(--muted);font-weight:500;text-align:right}
 .rates{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .rate{border-radius:12px;background:var(--bg);padding:10px 12px}
@@ -88,6 +94,7 @@ button:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
     <div class="card conv">
       <label for="usd">Monto</label>
       <div class="box"><span>$</span><input id="usd" type="number" inputmode="decimal" min="0" step="any" value="1" aria-label="Monto en dólares"></div>
+      <button id="ord" class="ordbtn" type="button" aria-pressed="false">↕ Ordenar</button>
     </div>
     <div id="fx" class="fx" style="margin-top:10px"></div>
   </section>
@@ -146,6 +153,16 @@ async function actualizar() {
 }
 
 // ---------- vista: tipo de cambio ----------
+let ordenando = false;
+function orden() { try { return JSON.parse(localStorage.getItem("fx-orden") || "[]"); } catch (e) { return []; } }
+function ordenadas(ents) { const o = orden(); const pos = (id) => { const i = o.indexOf(id); return i < 0 ? 99 : i; }; return [...ents].sort((a, b) => pos(a.id) - pos(b.id)); }
+function mover(id, d) {
+  const ids = ordenadas(FX.entidades).map((e) => e.id), i = ids.indexOf(id), j = i + d;
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  try { localStorage.setItem("fx-orden", JSON.stringify(ids)); } catch (e) {}
+  renderFX();
+}
 function renderFX() {
   const box = $("#fx");
   if (!FX) { box.innerHTML = `<div class="card empty">Toca «Actualizar / Consultar datos».</div>`; return; }
@@ -153,7 +170,14 @@ function renderFX() {
   const m = Math.max(0, parseFloat($("#usd").value) || 0), mt = usd.format(m);
   const ok = FX.entidades.filter((e) => e.ok);
   const bestCompra = Math.max(...ok.map((e) => e.compra)), bestVenta = Math.min(...ok.map((e) => e.venta));
-  box.innerHTML = FX.entidades.map((e) => !e.ok
+  const lista = ordenadas(FX.entidades);
+  if (ordenando) {
+    box.innerHTML = lista.map((e, i) => `<div class="card ent ordering"><h3>${esc(e.nombre)}<span class="mv">
+      <button data-mv="${e.id}" data-d="-1" aria-label="Subir ${esc(e.nombre)}" ${i === 0 ? "disabled" : ""}>↑</button>
+      <button data-mv="${e.id}" data-d="1" aria-label="Bajar ${esc(e.nombre)}" ${i === lista.length - 1 ? "disabled" : ""}>↓</button></span></h3></div>`).join("");
+    return;
+  }
+  box.innerHTML = lista.map((e) => !e.ok
     ? `<div class="card ent"><h3>${esc(e.nombre)}</h3><div class="err">${esc(e.error)}</div></div>`
     : `<div class="card ent"><h3>${esc(e.nombre)}${e.actualizado ? `<small>${esc(e.actualizado)}</small>` : ""}</h3>
       <div class="rates">
@@ -229,8 +253,10 @@ function render() {
 // ---------- eventos ----------
 $("#refresh").addEventListener("click", actualizar);
 $("#usd").addEventListener("input", renderFX);
+$("#ord").addEventListener("click", () => { ordenando = !ordenando; const b = $("#ord"); b.setAttribute("aria-pressed", ordenando); b.textContent = ordenando ? "✓ Listo" : "↕ Ordenar"; renderFX(); });
 document.addEventListener("click", (e) => {
   const n = e.target.closest("nav button"); if (n) { view = n.dataset.v; render(); window.scrollTo(0, 0); return; }
+  const mv = e.target.closest("[data-mv]"); if (mv) { mover(mv.dataset.mv, +mv.dataset.d); return; }
   const r = e.target.closest("[data-r]"); if (r) { range = r.dataset.r; document.querySelectorAll("[data-r]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.r === range)); plot(); }
 });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => view === "spx" && SPX && SPX.ok && plot());

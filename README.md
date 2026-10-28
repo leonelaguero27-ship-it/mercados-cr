@@ -10,7 +10,7 @@ Solo consulta cuando tocas **«Actualizar / Consultar datos»**, y una vez al ab
 ## Archivos
 - `index.html`: la app.
 - `api/fx.js`: lee el tipo de cambio del BCCR.
-- `api/spx.js`: lee el S&P 500 de Yahoo Finance.
+- `api/spx.js`: lee el S&P 500 de Google Finance (su servicio interno; si falla, el precio de la página). Abrir `/api/spx?debug=1` muestra el detalle si algo no sale.
 - `manifest.webmanifest`, `sw.js`, `icon-*.png`: hacen que Chrome la pueda instalar.
 - `vercel.json`: configuración de Vercel.
 
