@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mercados CR</title>
+<meta name="theme-color" content="#0B5D3B" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101614" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,700&display=swap">
+<style>
+:root{
+  --bg:#F3F5F4; --card:#FFFFFF; --ink:#1B1F1D; --muted:#5F6B66; --line:#DDE3E0;
+  --brand:#0B5D3B; --brand-ink:#FFFFFF; --up:#137333; --up-soft:#E6F4EA; --down:#C5221F; --down-soft:#FCE8E6;
+  --f:"Roboto Flex",Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#101614; --card:#18201D; --ink:#E7ECEA; --muted:#9AA8A2; --line:#2A3430;
+  --brand:#2E9D6B; --brand-ink:#FFFFFF; --up:#81C995; --up-soft:#1C3325; --down:#F28B82; --down-soft:#3B1E1C; color-scheme:dark}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f);font-size:15px;line-height:1.4}
+body{padding:calc(env(safe-area-inset-top,0px) + 12px) max(14px,env(safe-area-inset-right,0px)) calc(84px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px))}
+main{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+#refresh{width:100%;min-height:62px;border:0;border-radius:16px;background:var(--brand);color:var(--brand-ink);font:600 17px var(--f);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px}
+#refresh:disabled{opacity:.75}
+#refresh svg{width:22px;height:22px}
+#refresh.busy svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#stamp{font-size:13px;color:var(--muted);text-align:center;min-height:18px}
+.card{background:var(--card);border-radius:16px;padding:14px 16px}
+.err{background:var(--down-soft);color:var(--down);border-radius:12px;padding:12px 14px;font-size:14px}
+.empty{color:var(--muted);text-align:center;padding:28px 10px}
+/* Tipo de cambio */
+.conv{display:flex;align-items:center;gap:10px}
+.conv label{font-size:13px;color:var(--muted);flex:none}
+.conv .box{flex:1;min-width:0;display:flex;align-items:center;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:var(--bg);min-height:50px}
+.conv .box span{font-weight:700;color:var(--muted)}
+.conv input{flex:1;min-width:0;width:100%;border:0;background:transparent;color:var(--ink);font:700 22px var(--f);padding:8px 6px;outline:none}
+.fx{display:flex;flex-direction:column;gap:10px}
+.ent h3{margin:0 0 10px;font-size:16px;font-weight:700;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ent h3 small{font-size:11.5px;color:var(--muted);font-weight:500;text-align:right}
+.rates{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rate{border-radius:12px;background:var(--bg);padding:10px 12px}
+.rate .k{font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.02em}
+.rate .v{font-size:24px;font-weight:700}
+.rate .x{font-size:13px;color:var(--muted);margin-top:4px}
+.rate .x b{color:var(--ink);font-weight:700}
+.best{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:6px;background:var(--up-soft);color:var(--up);margin-left:4px;vertical-align:2px}
+/* S&P */
+.hero h2{margin:0;font-size:15px;font-weight:500;color:var(--muted)}
+.hero .p{font-size:38px;font-weight:700;line-height:1.1;margin-top:4px}
+.hero .p span{font-size:16px;font-weight:500;color:var(--muted)}
+.chg{font-size:16px;font-weight:600;margin-top:2px}
+.up{color:var(--up)} .down{color:var(--down)}
+.ranges{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:4px 0 6px}
+.ranges button{border:0;background:transparent;color:var(--muted);font:600 14px var(--f);min-height:40px;border-radius:10px;cursor:pointer}
+.ranges button[aria-pressed="true"]{background:var(--bg);color:var(--ink)}
+#plot{width:100%;height:260px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:var(--card);border-radius:14px;padding:12px 14px}
+.kpi .k{font-size:12.5px;color:var(--muted)}
+.kpi .v{font-size:19px;font-weight:700;margin-top:2px}
+/* navegación inferior */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;
+  padding:6px max(10px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px))}
+nav button{border:0;background:none;color:var(--muted);font:600 12.5px var(--f);min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border-radius:12px}
+nav button svg{width:24px;height:24px}
+nav button[aria-current="page"]{color:var(--brand)}
+nav button[aria-current="page"] svg{background:var(--up-soft);border-radius:999px;padding:2px 14px;width:52px;box-sizing:content-box}
+button:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.conv input:focus,.conv input:focus-visible{outline:none}
+.conv .box:focus-within{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){#refresh.busy svg{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <button id="refresh" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg><span>Actualizar / Consultar datos</span></button>
+  <div id="stamp" aria-live="polite"></div>
+
+  <section id="v-fx" aria-label="Tipo de Cambio CR">
+    <div class="card conv">
+      <label for="usd">Monto</label>
+      <div class="box"><span>$</span><input id="usd" type="number" inputmode="decimal" min="0" step="any" value="1" aria-label="Monto en dólares"></div>
+    </div>
+    <div id="fx" class="fx" style="margin-top:10px"></div>
+  </section>
+
+  <section id="v-spx" aria-label="S&P 500" hidden>
+    <div id="spx"></div>
+  </section>
+</main>
+
+<nav aria-label="Vistas">
+  <button data-v="fx" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 7h12l-3-3M17 17H5l3 3"/></svg>Tipo de Cambio CR</button>
+  <button data-v="spx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-8M15 7h5v5"/></svg>S&amp;P 500</button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-basic-dist-min@2.35.3/plotly-basic.min.js" defer></script>
+<script>
+const TZ = "America/Costa_Rica";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const crc = new Intl.NumberFormat("es-CR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const usd = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const colones = (v) => "₡" + crc.format(v);
+
+let FX = null, SPX = null, stamp = "", view = "fx", range = "1D", busy = false;
+
+// ---------- hora CST ----------
+function horaCR(d = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })
+    .formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.hour}:${p.minute}:${p.second} ${p.dayPeriod === "PM" ? "p. m." : "a. m."}`;
+}
+function fechaCR(ms) { // "YYYY-MM-DD HH:MM:SS" en hora de Costa Rica, para el eje del gráfico
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
+    .formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour === "24" ? "00" : p.hour}:${p.minute}:${p.second}`;
+}
+
+// ---------- consulta (solo al tocar el botón, y una vez al abrir) ----------
+async function getJSON(url) {
+  try {
+    const r = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(30000) });
+    if (!r.ok) return { ok: false, error: `El servidor respondió ${r.status}` };
+    return await r.json();
+  } catch (e) {
+    return { ok: false, error: e && e.name === "TimeoutError" ? "La consulta tardó demasiado. Revisa tu conexión e intenta de nuevo." : "Sin conexión. Revisa tu internet e intenta de nuevo." };
+  }
+}
+async function actualizar() {
+  if (busy) return;
+  busy = true; const b = $("#refresh"); b.disabled = true; b.classList.add("busy"); b.querySelector("span").textContent = "Consultando…";
+  const [fx, spx] = await Promise.all([getJSON("/api/fx"), getJSON("/api/spx")]);
+  FX = fx; SPX = spx; stamp = `Última actualización: ${horaCR()} CST (UTC-6)`;
+  try { localStorage.setItem("mercados-cr", JSON.stringify({ FX, SPX, stamp })); } catch (e) {}
+  busy = false; b.disabled = false; b.classList.remove("busy"); b.querySelector("span").textContent = "Actualizar / Consultar datos";
+  render();
+}
+
+// ---------- vista: tipo de cambio ----------
+function renderFX() {
+  const box = $("#fx");
+  if (!FX) { box.innerHTML = `<div class="card empty">Toca «Actualizar / Consultar datos».</div>`; return; }
+  if (!FX.ok) { box.innerHTML = `<div class="err">No se pudo leer el tipo de cambio del BCCR: ${esc(FX.error)}</div>`; return; }
+  const m = Math.max(0, parseFloat($("#usd").value) || 0), mt = usd.format(m);
+  const ok = FX.entidades.filter((e) => e.ok);
+  const bestCompra = Math.max(...ok.map((e) => e.compra)), bestVenta = Math.min(...ok.map((e) => e.venta));
+  box.innerHTML = FX.entidades.map((e) => !e.ok
+    ? `<div class="card ent"><h3>${esc(e.nombre)}</h3><div class="err">${esc(e.error)}</div></div>`
+    : `<div class="card ent"><h3>${esc(e.nombre)}${e.actualizado ? `<small>${esc(e.actualizado)}</small>` : ""}</h3>
+      <div class="rates">
+        <div class="rate"><div class="k">COMPRA${ok.length > 1 && e.compra === bestCompra ? `<span class="best">MEJOR</span>` : ""}</div><div class="v num">${colones(e.compra)}</div>
+          <div class="x">Vendes $${mt}:<br><b class="num">${colones(m * e.compra)}</b></div></div>
+        <div class="rate"><div class="k">VENTA${ok.length > 1 && e.venta === bestVenta ? `<span class="best">MEJOR</span>` : ""}</div><div class="v num">${colones(e.venta)}</div>
+          <div class="x">Compras $${mt}:<br><b class="num">${colones(m * e.venta)}</b></div></div>
+      </div></div>`).join("");
+}
+
+// ---------- vista: S&P 500 ----------
+function renderSPX() {
+  const box = $("#spx");
+  if (!SPX) { box.innerHTML = `<div class="card empty">Toca «Actualizar / Consultar datos».</div>`; return; }
+  if (!SPX.ok) { box.innerHTML = `<div class="err">No se pudo consultar el S&amp;P 500: ${esc(SPX.error)}</div>`; return; }
+  const q = SPX.quote, up = (q.cambio ?? 0) >= 0, sg = up ? "+" : "−";
+  const f = (v) => v == null ? "—" : usd.format(v);
+  box.innerHTML = `
+  <div class="card hero">
+    <h2>S&amp;P 500 (.INX)</h2>
+    <div class="p num">${f(q.precio)} <span>USD</span></div>
+    <div class="chg num ${up ? "up" : "down"}">${q.cambio == null ? "" : `${sg}${f(Math.abs(q.cambio))} (${sg}${Math.abs(q.pct).toFixed(2)}%) hoy`}</div>
+    <div class="ranges" role="group" aria-label="Temporalidad">${["1D", "5D", "1M", "6M", "1Y", "5Y"].map((r) => `<button data-r="${r}" aria-pressed="${r === range}">${r}</button>`).join("")}</div>
+    <div id="plot"></div>
+  </div>
+  <div class="kpis" style="margin-top:10px">
+    <div class="kpi"><div class="k">Cierre anterior</div><div class="v num">${f(q.cierreAnterior)}</div></div>
+    <div class="kpi"><div class="k">Apertura hoy</div><div class="v num">${f(q.apertura)}</div></div>
+    <div class="kpi"><div class="k">Mínimo del día</div><div class="v num">${f(q.minimo)}</div></div>
+    <div class="kpi"><div class="k">Máximo del día</div><div class="v num">${f(q.maximo)}</div></div>
+  </div>`;
+  plot();
+}
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "set", "oct", "nov", "dic"];
+function etiqueta(ms, conHora) {
+  const [d, h] = fechaCR(ms).split(" "), [y, mo, dd] = d.split("-");
+  let txt = `${+dd} ${MESES[+mo - 1]} ${y}`;
+  if (conHora) { const [H, M] = h.split(":"); const hh = (+H % 12) || 12; txt += `, ${String(hh).padStart(2, "0")}:${M} ${+H < 12 ? "a. m." : "p. m."} CST`; }
+  return txt;
+}
+let localeOk = false;
+function plot() {
+  const el = $("#plot"); if (!el) return;
+  const s = SPX.series[range];
+  if (!s || s.error || !s.c || !s.c.length) { el.innerHTML = `<div class="empty">${esc((s && s.error) || "Sin datos para este periodo")}</div>`; return; }
+  if (!window.Plotly) { el.innerHTML = `<div class="empty">Cargando gráfico…</div>`; setTimeout(plot, 400); return; }
+  if (!localeOk) { Plotly.register({ moduleType: "locale", name: "es", dictionary: {}, format: { months: ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","setiembre","octubre","noviembre","diciembre"], shortMonths: MESES, days: ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"], shortDays: ["dom","lun","mar","mié","jue","vie","sáb"], periods: ["a. m.", "p. m."] } }); localeOk = true; }
+  const base = range === "1D" && s.base ? s.base : s.c[0];
+  const up = s.c[s.c.length - 1] >= base;
+  const css = getComputedStyle(document.documentElement);
+  const col = css.getPropertyValue(up ? "--up" : "--down").trim(), ink = css.getPropertyValue("--muted").trim(), grid = css.getPropertyValue("--line").trim();
+  const x = s.t.map(fechaCR), intraday = ["1D", "5D", "1M"].includes(range);
+  const traces = [{ x, y: s.c, type: "scatter", mode: "lines", line: { color: col, width: 2 }, fill: "tozeroy", fillcolor: col + "22",
+    customdata: s.t.map((ms) => etiqueta(ms, intraday)), hovertemplate: `%{customdata}<br><b>%{y:,.2f}</b><extra></extra>` }];
+  if (range === "1D" && s.base) traces.push({ x: [x[0], x[x.length - 1]], y: [s.base, s.base], mode: "lines", line: { color: ink, width: 1, dash: "dot" }, hoverinfo: "skip" });
+  const lo = Math.min(...s.c, base), hi = Math.max(...s.c, base), pad = (hi - lo) * 0.08 || 1;
+  Plotly.react(el, traces, {
+    margin: { l: 44, r: 8, t: 6, b: 28 }, showlegend: false, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+    font: { family: "Roboto Flex, Roboto, sans-serif", color: ink, size: 11 }, hovermode: "x", dragmode: false,
+    xaxis: { showgrid: false, tickformat: range === "1D" ? "%I:%M %p" : intraday ? "%d %b" : range === "5Y" ? "%Y" : "%b %Y", nticks: 5, fixedrange: true, showspikes: true, spikemode: "across", spikethickness: 1, spikecolor: ink, spikedash: "dot" },
+    yaxis: { range: [lo - pad, hi + pad], gridcolor: grid, tickformat: ",.0f", nticks: 5, fixedrange: true, zeroline: false },
+    hoverlabel: { bgcolor: css.getPropertyValue("--card").trim(), bordercolor: grid, font: { color: css.getPropertyValue("--ink").trim(), size: 13 } },
+  }, { displayModeBar: false, responsive: true, locale: "es" });
+}
+
+function render() {
+  $("#stamp").textContent = stamp;
+  $("#v-fx").hidden = view !== "fx"; $("#v-spx").hidden = view !== "spx";
+  document.querySelectorAll("nav button").forEach((b) => b.setAttribute("aria-current", b.dataset.v === view ? "page" : "false"));
+  if (view === "fx") renderFX(); else renderSPX();
+}
+
+// ---------- eventos ----------
+$("#refresh").addEventListener("click", actualizar);
+$("#usd").addEventListener("input", renderFX);
+document.addEventListener("click", (e) => {
+  const n = e.target.closest("nav button"); if (n) { view = n.dataset.v; render(); window.scrollTo(0, 0); return; }
+  const r = e.target.closest("[data-r]"); if (r) { range = r.dataset.r; document.querySelectorAll("[data-r]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.r === range)); plot(); }
+});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => view === "spx" && SPX && SPX.ok && plot());
+
+// Al abrir: muestra lo último consultado y hace una sola consulta.
+try { const s = JSON.parse(localStorage.getItem("mercados-cr") || "null"); if (s) ({ FX, SPX, stamp } = s); } catch (e) {}
+render();
+actualizar();
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+</script>
+</body>
+</html>
