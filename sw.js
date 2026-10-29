@@ -1,6 +1,6 @@
 // Guarda solo la «cáscara» de la app para que abra rápido e instalable.
 // Las consultas (/api/...) nunca se guardan: siempre van a la red y solo cuando tocas el botón.
-const CACHE = "mercados-cr-v3";
+const CACHE = "mercados-cr-v4";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))); self.clients.claim(); });
