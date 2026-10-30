@@ -2,7 +2,7 @@
 
 App web instalable (PWA) para el celular:
 
-- **Tipo de Cambio CR:** compra y venta de ventanilla de Banco Nacional, Banco Popular, BAC Credomatic y Ari Casa de Cambio, tomadas del cuadro 1015 del BCCR. Incluye un convertidor de dólares a colones.
+- **Tipo de Cambio CR:** compra y venta de ventanilla de Banco Nacional, Banco Popular, BAC Credomatic y Ari Casa de Cambio, tomadas del cuadro 1015 del BCCR. Incluye un convertidor de dólares a colones. Al tocar el nombre de una entidad se ve su historial (lo que se guardó en el teléfono cada vez que actualizaste), con un gráfico y cuánto subió o bajó.
 - **S&P 500 (.INX):** valor actual, cambio del día y gráfico de 1D, 5D, 1M, 6M, 1Y y 5Y en hora de Costa Rica. Abajo: cierre anterior, apertura, mínimo y máximo.
 
 Solo consulta cuando tocas **«Actualizar / Consultar datos»**, y una vez al abrir. Cada consulta trae las dos vistas al mismo tiempo. No hace nada en segundo plano.

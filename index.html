@@ -56,6 +56,16 @@ main{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
 .rate .v{font-size:24px;font-weight:700}
 .rate .x{font-size:13px;color:var(--muted);margin-top:4px}
 .rate .x b{color:var(--ink);font-weight:700}
+.dl{font-size:12.5px;font-weight:600;margin-top:2px}
+.ent .eh{cursor:pointer;border-radius:8px}
+.ent .eh .chev{color:var(--muted);font-size:13px;font-weight:500;margin-left:6px}
+.hist{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.hist .hplot{width:100%;height:170px}
+.hist table{width:100%;border-collapse:collapse;font-size:13.5px}
+.hist td,.hist th{padding:6px 4px;text-align:right;border-bottom:1px solid var(--line)}
+.hist th{color:var(--muted);font-weight:500;font-size:12px}
+.hist td:first-child,.hist th:first-child{text-align:left}
+.hist .note{font-size:12px;color:var(--muted);margin-top:6px}
 .best{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:6px;background:var(--up-soft);color:var(--up);margin-left:4px;vertical-align:2px}
 /* S&P */
 .hero h2{margin:0;font-size:15px;font-weight:500;color:var(--muted)}
@@ -154,8 +164,67 @@ async function actualizar() {
   const [fx, spx] = await Promise.all([getJSON("/api/fx"), getJSON("/api/spx")]);
   FX = fx; SPX = spx; stamp = `Última actualización: ${horaCR()} CST (UTC-6)`;
   try { localStorage.setItem("mercados-cr", JSON.stringify({ FX, SPX, stamp })); } catch (e) {}
+  if (FX && FX.ok) guardarHist(FX);
   busy = false; b.disabled = false; b.classList.remove("busy"); b.querySelector("span").textContent = "Actualizar / Consultar datos";
   render();
+}
+
+// ---------- historial por entidad (se guarda en este teléfono cada vez que actualizas) ----------
+const HKEY = "fx-historial";
+function hist() { try { return JSON.parse(localStorage.getItem(HKEY) || "{}"); } catch (e) { return {}; } }
+function guardarHist(fx) {
+  const H = hist(), now = Date.now();
+  fx.entidades.filter((e) => e.ok).forEach((e) => {
+    const l = (H[e.id] = H[e.id] || []), last = l[l.length - 1];
+    if (last && last.c === e.compra && last.v === e.venta) last.u = now;          // sin cambio: solo se anota que se revisó
+    else l.push({ t: now, c: e.compra, v: e.venta });
+    if (l.length > 400) l.splice(0, l.length - 400);
+  });
+  try { localStorage.setItem(HKEY, JSON.stringify(H)); } catch (e) {}
+}
+function previo(id, e) {   // la lectura anterior con valores distintos a los de ahora
+  const l = hist()[id] || [];
+  for (let i = l.length - 1; i >= 0; i--) if (l[i].c !== e.compra || l[i].v !== e.venta) return l[i];
+  return null;
+}
+const crcD = new Intl.NumberFormat("es-CR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function delta(now, before) {
+  if (before == null) return "";
+  const d = Math.round((now - before) * 100) / 100;
+  if (!d) return `<div class="dl" style="color:var(--muted)">= sin cambio</div>`;
+  return `<div class="dl num ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ₡${crcD.format(Math.abs(d))}</div>`;
+}
+const fechaCorta = (ms) => { const [d, h] = fechaCR(ms).split(" "), [y, mo, dd] = d.split("-"), [H, M] = h.split(":");
+  return `${+dd} ${MESES[+mo - 1]}${y !== String(new Date().getFullYear()) ? " " + y : ""}, ${String((+H % 12) || 12).padStart(2, "0")}:${M} ${+H < 12 ? "a. m." : "p. m."}`; };
+const abiertas = new Set();
+function histHTML(e) {
+  const l = hist()[e.id] || [];
+  if (!l.length) return `<div class="hist"><div class="note">Todavía no hay historial: se guarda cada vez que tocas «Actualizar / Consultar datos».</div></div>`;
+  const rows = l.slice().reverse().slice(0, 20).map((x, i, arr) => {
+    const p = arr[i + 1], dc = p ? x.c - p.c : 0, dv = p ? x.v - p.v : 0;
+    const ar = (d) => !p || !d ? "" : ` <span class="${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"}</span>`;
+    return `<tr><td>${fechaCorta(x.t)}</td><td class="num">${crcD.format(x.c)}${ar(dc)}</td><td class="num">${crcD.format(x.v)}${ar(dv)}</td></tr>`;
+  }).join("");
+  const first = l[0];
+  return `<div class="hist">${l.length > 1 ? `<div class="hplot" id="hp_${e.id}"></div>` : ""}
+    <table><tr><th>Cuando cambió</th><th>Compra</th><th>Venta</th></tr>${rows}</table>
+    <div class="note">Desde ${fechaCorta(first.t)} · ${l.length} cambio${l.length === 1 ? "" : "s"} registrados en este teléfono.</div></div>`;
+}
+function histPlot(e) {
+  const el = document.getElementById("hp_" + e.id), l = hist()[e.id] || [];
+  if (!el || l.length < 2) return;
+  if (!window.Plotly) { setTimeout(() => histPlot(e), 400); return; }
+  regES();
+  const css = getComputedStyle(document.documentElement), ink = css.getPropertyValue("--muted").trim(), grid = css.getPropertyValue("--line").trim();
+  const pts = l.flatMap((x) => [x, ...(x.u ? [{ ...x, t: x.u }] : [])]);   // escalones: el valor se mantiene hasta que cambia
+  const xs = pts.map((x) => fechaCR(x.t)), lab = pts.map((x) => fechaCorta(x.t));
+  const tr = (k, name, color) => ({ x: xs, y: pts.map((x) => x[k]), name, type: "scatter", mode: "lines+markers", line: { shape: "hv", color, width: 2 }, marker: { size: 5 },
+    customdata: lab, hovertemplate: `%{customdata}<br>${name}: <b>₡%{y:,.2f}</b><extra></extra>` });
+  Plotly.react(el, [tr("v", "Venta", css.getPropertyValue("--down").trim()), tr("c", "Compra", css.getPropertyValue("--up").trim())], {
+    margin: { l: 44, r: 8, t: 4, b: 24 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: { family: "Roboto Flex, Roboto, sans-serif", color: ink, size: 11 },
+    showlegend: true, legend: { orientation: "h", y: 1.12, x: 0 }, hovermode: "closest", dragmode: false,
+    xaxis: { showgrid: false, nticks: 4, fixedrange: true, tickformat: "%d %b" }, yaxis: { gridcolor: grid, tickformat: ",.0f", nticks: 4, fixedrange: true },
+  }, { displayModeBar: false, responsive: true, locale: "es" });
 }
 
 // ---------- vista: tipo de cambio ----------
@@ -185,13 +254,15 @@ function renderFX() {
   }
   box.innerHTML = lista.map((e) => !e.ok
     ? `<div class="card ent"><h3>${esc(e.nombre)}</h3><div class="err">${esc(e.error)}</div></div>`
-    : `<div class="card ent"><h3>${esc(e.nombre)}${e.actualizado ? `<small>${esc(e.actualizado)}</small>` : ""}</h3>
+    : (() => { const p = previo(e.id, e), op = abiertas.has(e.id); return `<div class="card ent">
+      <h3 class="eh" data-hist="${e.id}" role="button" tabindex="0" aria-expanded="${op}" aria-label="Historial de ${esc(e.nombre)}">${esc(e.nombre)}<span class="chev">${op ? "▴ ocultar" : "historial ▾"}</span>${e.actualizado ? `<small>${esc(e.actualizado)}</small>` : ""}</h3>
       <div class="rates">
-        <div class="rate"><div class="k">COMPRA${ok.length > 1 && e.compra === bestCompra ? `<span class="best">MEJOR</span>` : ""}</div><div class="v num">${colones(e.compra)}</div>
+        <div class="rate"><div class="k">COMPRA${ok.length > 1 && e.compra === bestCompra ? `<span class="best">MEJOR</span>` : ""}</div><div class="v num">${colones(e.compra)}</div>${p ? delta(e.compra, p.c) : ""}
           <div class="x">Vendes $${mt}:<br><b class="num">${colones(m * e.compra)}</b></div></div>
-        <div class="rate"><div class="k">VENTA${ok.length > 1 && e.venta === bestVenta ? `<span class="best">MEJOR</span>` : ""}</div><div class="v num">${colones(e.venta)}</div>
+        <div class="rate"><div class="k">VENTA${ok.length > 1 && e.venta === bestVenta ? `<span class="best">MEJOR</span>` : ""}</div><div class="v num">${colones(e.venta)}</div>${p ? delta(e.venta, p.v) : ""}
           <div class="x">Compras $${mt}:<br><b class="num">${colones(m * e.venta)}</b></div></div>
-      </div></div>`).join("");
+      </div>${p ? `<div class="note mu" style="font-size:12px;color:var(--muted);margin-top:6px">Comparado con ${fechaCorta(p.u || p.t)}</div>` : ""}${op ? histHTML(e) : ""}</div>`; })()).join("");
+  lista.filter((e) => e.ok && abiertas.has(e.id)).forEach(histPlot);
 }
 
 // ---------- vista: S&P 500 ----------
@@ -226,12 +297,15 @@ function etiqueta(ms, conHora) {
   return txt;
 }
 let localeOk = false;
+function regES() {
+  if (!localeOk) { Plotly.register({ moduleType: "locale", name: "es", dictionary: {}, format: { months: ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","setiembre","octubre","noviembre","diciembre"], shortMonths: MESES, days: ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"], shortDays: ["dom","lun","mar","mié","jue","vie","sáb"], periods: ["a. m.", "p. m."] } }); localeOk = true; }
+}
 function plot() {
   const el = $("#plot"); if (!el) return;
   const s = SPX.series[range];
   if (!s || s.error || !s.c || !s.c.length) { el.innerHTML = `<div class="empty">${esc((s && s.error) || "Sin datos para este periodo")}</div>`; return; }
   if (!window.Plotly) { el.innerHTML = `<div class="empty">Cargando gráfico…</div>`; setTimeout(plot, 400); return; }
-  if (!localeOk) { Plotly.register({ moduleType: "locale", name: "es", dictionary: {}, format: { months: ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","setiembre","octubre","noviembre","diciembre"], shortMonths: MESES, days: ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"], shortDays: ["dom","lun","mar","mié","jue","vie","sáb"], periods: ["a. m.", "p. m."] } }); localeOk = true; }
+  regES();
   const base = range === "1D" && s.base ? s.base : s.c[0];
   const up = s.c[s.c.length - 1] >= base;
   const pct = (v) => ((v - base) / base) * 100, sgn = (v) => (v >= 0 ? "+" : "−");
@@ -268,8 +342,10 @@ $("#ord").addEventListener("click", () => { ordenando = !ordenando; const b = $(
 document.addEventListener("click", (e) => {
   const n = e.target.closest("nav button"); if (n) { view = n.dataset.v; render(); window.scrollTo(0, 0); return; }
   const mv = e.target.closest("[data-mv]"); if (mv) { mover(mv.dataset.mv, +mv.dataset.d); return; }
+  const hh = e.target.closest("[data-hist]"); if (hh) { const id = hh.dataset.hist; abiertas.has(id) ? abiertas.delete(id) : abiertas.add(id); renderFX(); return; }
   const r = e.target.closest("[data-r]"); if (r) { range = r.dataset.r; document.querySelectorAll("[data-r]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.r === range)); plot(); }
 });
+document.addEventListener("keydown", (e) => { const h = e.target.closest && e.target.closest("[data-hist]"); if (h && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); h.click(); } });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => view === "spx" && SPX && SPX.ok && plot());
 
 // Al abrir: muestra lo último consultado y hace una sola consulta.
