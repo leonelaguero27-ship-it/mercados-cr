@@ -14,6 +14,8 @@ const ENTIDADES = [
   { id: "bp", nombre: "Banco Popular", re: /popular/i },
   { id: "bac", nombre: "BAC Credomatic", re: /\bbac\b/i },
   { id: "ari", nombre: "Ari Casa de Cambio", re: /\bari\b/i },
+  { id: "mm", nombre: "MultiMoney", re: /multi\s*money/i },
+  { id: "improsa", nombre: "Banco Improsa", re: /improsa/i },
 ];
 
 function headers(token) {
